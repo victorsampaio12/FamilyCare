@@ -1,0 +1,119 @@
+# Análise e Controle de Risco de Produto
+
+## Tabela FMEA
+
+| ID | Função do Sistema | Modo de Falha | Efeito da Falha | Causa Potencial | Severidade (S) | Ocorrência (O) | Detecção (D) | RPN (S×O×D) | Ação Recomendada |
+|----|-------------------|---------------|-----------------|-----------------|:--------------:|:--------------:|:------------:|:-----------:|------------------|
+| MF-01 | Gerenciar escala de revezamento dos filhos para acompanhamento contínuo do idoso | Ausência de filho responsável no horário designado (gap na cobertura) | Idoso fica desamparado, sem supervisão, com risco de queda, mal-estar ou emergência sem atendimento | Falha no algoritmo de alocação da escala; conflito de horário não tratado pelo sistema; ausência de validação de cobertura contínua | 9 | 6 | 4 | **216** | Implementar validação automática que impeça salvar escala com lacunas de cobertura; gerar alerta ao responsável seguinte 30 min antes da troca |
+| MF-02 | Emitir alertas de horário de medicamento para o cuidador presente | Sistema não dispara alerta de medicamento no horário correto | Idoso deixa de tomar medicamento no horário prescrito, podendo causar agravamento de condição de saúde, crise ou internação | Erro no módulo de agendamento de alarmes; falha no cálculo de fuso horário; serviço de notificação indisponível | 10 | 4 | 3 | **120** | Adicionar serviço watchdog que verifique se alarmes pendentes estão enfileirados; implementar redundância com canal secundário (SMS) |
+| MF-03 | Registrar confirmação de administração de medicamento pelo cuidador | Cuidador não confirma administração e o sistema não detecta a omissão | Incerteza sobre dose administrada; risco de dose duplicada ou perdida | Ausência de mecanismo de escalação para confirmação pendente; timeout de confirmação não implementado | 8 | 5 | 5 | **200** | Implementar timeout de confirmação (15 min) com escalação automática para outro filho e registro no log de eventos |
+| MF-04 | Realizar transição de responsabilidade entre filhos (troca de turno) | Troca de turno ocorre sem handoff — novo responsável não recebe informações do turno anterior | Novo cuidador desconhece eventos recentes (medicamentos, sintomas, alimentação), comprometendo a continuidade do cuidado | Sistema não possui funcionalidade de relatório de turno; dados não consolidados automaticamente na transição | 7 | 7 | 6 | **294** | Gerar relatório automático de turno com resumo de medicamentos, alimentação, ocorrências e pendências, exigindo aceite do novo responsável |
+| MF-05 | Impedir conflito de medicamentos (interação medicamentosa) | Sistema permite cadastro de medicamentos com interação perigosa sem emitir alerta | Idoso recebe combinação de medicamentos contraindicada, podendo causar reação adversa grave, intoxicação ou risco de vida | Base de dados de interações medicamentosas desatualizada ou inexistente; ausência de validação cruzada no cadastro | 10 | 3 | 7 | **210** | Integrar base de dados de interações medicamentosas atualizada; validar automaticamente cada novo cadastro contra medicamentos já registrados |
+
+---
+
+## Matriz FMEA — Severidade × Ocorrência
+
+> Tamanho do círculo representa o RPN. Quanto mais alto e à direita, maior o risco.
+
+| ID | Modo de Falha | Severidade (S) | Ocorrência (O) | RPN | Nível de Risco |
+|----|---------------|:--------------:|:--------------:|:---:|:--------------:|
+| MF-04 | Troca de turno sem handoff | 7 | 7 | **294** | 🔴 Alto |
+| MF-01 | Gap na cobertura (idoso desamparado) | 9 | 6 | **216** | 🔴 Alto |
+| MF-05 | Interação medicamentosa não detectada | 10 | 3 | **210** | 🔴 Alto |
+| MF-03 | Omissão de confirmação de medicamento | 8 | 5 | **200** | 🔴 Alto |
+| MF-02 | Alerta de medicamento não dispara | 10 | 4 | **120** | 🟡 Médio |
+
+**Critério de classificação:**
+- 🔴 **Alto** — RPN ≥ 200: ação imediata necessária
+- 🟡 **Médio** — RPN entre 100 e 199: monitorar e planejar ação
+- 🟢 **Baixo** — RPN < 100: aceitável com controles existentes
+
+---
+
+# Controle de Risco
+
+## Ações de Controle Baseadas em Teste
+
+### TC-01 — Bloqueio de escala com lacuna de cobertura
+**Referência ao modo de falha:** MF-01 — Ausência de filho responsável no horário designado
+
+**Descrição sucinta do teste:**  
+Tentar salvar uma escala semanal que contenha um intervalo de tempo sem nenhum filho responsável atribuído e verificar se o sistema impede o salvamento.
+
+**Pré-condição:** Sistema com 3 filhos cadastrados; escala semanal aberta para edição.
+
+**Passos:**
+1. Criar escala deixando intervalo de 2h sem responsável
+2. Tentar salvar a escala
+
+**Resultado esperado:** Sistema bloqueia o salvamento e exibe: *"Há intervalo sem cobertura entre [hora_início] e [hora_fim]. Atribua um responsável."*
+
+---
+
+### TC-02 — Disparo de alerta de medicamento no horário correto
+**Referência ao modo de falha:** MF-02 — Sistema não dispara alerta de medicamento no horário correto
+
+**Descrição sucinta do teste:**  
+Cadastrar um medicamento com horário próximo e verificar se a notificação é recebida pelo cuidador ativo dentro da tolerância de ±1 minuto.
+
+**Pré-condição:** Medicamento cadastrado para horário 5 min no futuro; cuidador logado no app.
+
+**Passos:**
+1. Cadastrar medicamento com horário 5 min no futuro
+2. Aguardar o horário
+3. Observar notificação no dispositivo do cuidador ativo
+
+**Resultado esperado:** Notificação push recebida com ±1 min de tolerância, contendo nome do medicamento e dosagem.
+
+---
+
+### TC-03 — Escalação por falta de confirmação de medicamento
+**Referência ao modo de falha:** MF-03 — Cuidador não confirma administração e o sistema não detecta a omissão
+
+**Descrição sucinta do teste:**  
+Disparar alerta de medicamento e não confirmar a administração, verificando se o sistema aciona o próximo responsável após o timeout de 15 minutos.
+
+**Pré-condição:** Alerta disparado para Filho A; Filho B cadastrado como próximo na escala.
+
+**Passos:**
+1. Disparar alerta de medicamento
+2. Não confirmar administração por 15 min
+3. Verificar notificação recebida por Filho B
+
+**Resultado esperado:** Filho B recebe alerta: *"Medicamento [nome] não confirmado por [Filho A]. Verifique imediatamente."*
+
+---
+
+### TC-04 — Geração de relatório de handoff na troca de turno
+**Referência ao modo de falha:** MF-04 — Troca de turno sem handoff
+
+**Descrição sucinta do teste:**  
+Simular encerramento de turno e verificar se o sistema gera relatório com eventos do turno anterior, exigindo confirmação de recebimento pelo novo responsável.
+
+**Pré-condição:** Filho A encerrou turno com 2 medicamentos dados, 1 refeição e 1 ocorrência registrada.
+
+**Passos:**
+1. Filho A encerra turno no sistema
+2. Sistema gera relatório automático
+3. Filho B recebe relatório
+4. Filho B confirma recebimento
+
+**Resultado esperado:** Relatório contém resumo de medicamentos, alimentação e ocorrências. Sistema registra confirmação de Filho B com timestamp.
+
+---
+
+### TC-05 — Detecção de interação medicamentosa no cadastro
+**Referência ao modo de falha:** MF-05 — Sistema permite cadastro de medicamentos com interação perigosa sem alerta
+
+**Descrição sucinta do teste:**  
+Tentar cadastrar um medicamento com interação conhecida com outro já registrado para o idoso e verificar se o sistema emite alerta e bloqueia o cadastro sem confirmação médica.
+
+**Pré-condição:** Idoso já possui *Varfarina* cadastrada; usuário tenta cadastrar *Ibuprofeno*.
+
+**Passos:**
+1. Acessar cadastro de medicamentos
+2. Adicionar Ibuprofeno 400mg
+3. Confirmar cadastro
+
+**Resultado esperado:** Sistema exibe: *"ATENÇÃO: Interação medicamentosa detectada entre Varfarina e Ibuprofeno (risco de sangramento). Cadastro requer confirmação médica."* O cadastro permanece bloqueado até anexar autorização.
