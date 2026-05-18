@@ -1,0 +1,286 @@
+{% extends 'base.html' %}
+
+{% block title %}Registrar turno — HelpAge{% endblock %}
+
+{% block topbar_title %}<strong>Registrar turno</strong>{% endblock %}
+
+{% block content %}
+<style>
+  .form-wrap { max-width: 680px; }
+
+  .turno-banner {
+    background: linear-gradient(135deg, var(--sage-600), var(--sage-800));
+    border-radius: var(--radius-md);
+    padding: 18px 22px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 24px;
+  }
+  .tb-icon {
+    width: 46px; height: 46px;
+    background: rgba(255,255,255,.15);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; color: #fff;
+    flex-shrink: 0;
+  }
+  .tb-info { flex: 1; }
+  .tb-label {
+    font-size: .68rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .08em;
+    color: rgba(255,255,255,.6); margin-bottom: 3px;
+  }
+  .tb-title {
+    font-family: var(--font-display);
+    font-size: 1.05rem; font-weight: 600; color: #fff;
+  }
+  .tb-sub { font-size: .78rem; color: rgba(255,255,255,.65); margin-top: 2px; }
+
+  .form-section { margin-bottom: 20px; }
+  .form-section-title {
+    font-family: var(--font-display);
+    font-size: .9rem; font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 14px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .form-section-title i { color: var(--sage-500); font-size: 18px; }
+
+  .form-group { display: flex; flex-direction: column; gap: 5px; }
+  .form-label { font-size: .8rem; font-weight: 500; color: var(--text-secondary); }
+  .form-control {
+    padding: 10px 12px;
+    border: 1.5px solid var(--border);
+    border-radius: 9px;
+    background: var(--cream);
+    color: var(--text-primary);
+    font-family: var(--font-body);
+    font-size: .9rem;
+    outline: none;
+    transition: border-color .15s, box-shadow .15s;
+    width: 100%;
+  }
+  .form-control:focus {
+    border-color: var(--sage-400);
+    box-shadow: 0 0 0 3px rgba(79,165,114,.15);
+    background: var(--white);
+  }
+  textarea.form-control { resize: vertical; min-height: 80px; }
+
+  /* humor selector */
+  .humor-options {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .humor-opt { display: none; }
+  .humor-opt + label {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 10px 16px;
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: .78rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    transition: all .15s;
+    background: var(--white);
+    min-width: 72px;
+    text-align: center;
+  }
+  .humor-opt + label .emoji { font-size: 1.4rem; }
+  .humor-opt + label:hover { border-color: var(--sage-300); color: var(--sage-700); }
+  .humor-opt:checked + label {
+    border-color: var(--sage-500);
+    background: var(--sage-50);
+    color: var(--sage-700);
+    box-shadow: 0 0 0 3px rgba(79,165,114,.15);
+  }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+  .alert-field { position: relative; }
+  .alert-field textarea {
+    border-color: #f5bfbf;
+    background: #fdecea;
+  }
+  .alert-field textarea:focus {
+    border-color: #e24b4a;
+    box-shadow: 0 0 0 3px rgba(226,75,74,.12);
+    background: #fff8f8;
+  }
+  .alert-field .form-label { color: #8b2e2e; }
+
+  .footer-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+  }
+
+  @media (max-width: 560px) {
+    .grid-2 { grid-template-columns: 1fr; }
+    .humor-options { gap: 6px; }
+    .humor-opt + label { padding: 8px 10px; min-width: 60px; }
+  }
+</style>
+
+<!-- banner do turno -->
+<div class="form-wrap">
+  <div class="turno-banner">
+    <div class="tb-icon">
+      {% if turno.periodo == 'manha' %}<i class="ti ti-sun"></i>
+      {% elif turno.periodo == 'tarde' %}<i class="ti ti-cloud-sun"></i>
+      {% else %}<i class="ti ti-moon"></i>{% endif %}
+    </div>
+    <div class="tb-info">
+      <div class="tb-label">Registrando turno</div>
+      <div class="tb-title">
+        {% if turno.periodo == 'manha' %}Manhã
+        {% elif turno.periodo == 'tarde' %}Tarde
+        {% else %}Noite{% endif %}
+        — {{ turno.idoso.nome }}
+      </div>
+      <div class="tb-sub">
+        {{ turno.data.strftime('%d/%m/%Y') }} · Cuidador: {{ turno.cuidador.nome }}
+      </div>
+    </div>
+  </div>
+
+  <form method="POST"
+        action="{% if reg %}{{ url_for('registros.editar', reg_id=reg.id) }}{% else %}{{ url_for('registros.novo', turno_id=turno.id) }}{% endif %}">
+
+    <!-- Humor -->
+    <div class="card form-section">
+      <div class="card-header">
+        <div class="form-section-title" style="margin:0;border:none;padding:0">
+          <i class="ti ti-mood-smile"></i> Como está o humor?
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="humor-options">
+          {% set humor_atual = reg.humor if reg else '' %}
+          <input type="radio" name="humor" id="h-otimo" value="otimo" class="humor-opt"
+                 {% if humor_atual == 'otimo' %}checked{% endif %}>
+          <label for="h-otimo"><span class="emoji">😄</span>Ótimo</label>
+
+          <input type="radio" name="humor" id="h-bom" value="bom" class="humor-opt"
+                 {% if humor_atual == 'bom' %}checked{% endif %}>
+          <label for="h-bom"><span class="emoji">🙂</span>Bom</label>
+
+          <input type="radio" name="humor" id="h-neutro" value="neutro" class="humor-opt"
+                 {% if humor_atual == 'neutro' %}checked{% endif %}>
+          <label for="h-neutro"><span class="emoji">😐</span>Neutro</label>
+
+          <input type="radio" name="humor" id="h-agitado" value="agitado" class="humor-opt"
+                 {% if humor_atual == 'agitado' %}checked{% endif %}>
+          <label for="h-agitado"><span class="emoji">😰</span>Agitado</label>
+
+          <input type="radio" name="humor" id="h-triste" value="triste" class="humor-opt"
+                 {% if humor_atual == 'triste' %}checked{% endif %}>
+          <label for="h-triste"><span class="emoji">😢</span>Triste</label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Saúde e bem-estar -->
+    <div class="card form-section">
+      <div class="card-header">
+        <div class="form-section-title" style="margin:0;border:none;padding:0">
+          <i class="ti ti-heart-rate-monitor"></i> Saúde e bem-estar
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="grid-2" style="margin-bottom:14px">
+          <div class="form-group">
+            <label class="form-label" for="alimentacao">
+              <i class="ti ti-tools-kitchen-2" style="font-size:14px;color:var(--sage-500)"></i>
+              Alimentação
+            </label>
+            <textarea id="alimentacao" name="alimentacao" class="form-control"
+                      placeholder="O que comeu? Aceitou bem? Recusou algum alimento?">{{ reg.alimentacao if reg else '' }}</textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="hidratacao">
+              <i class="ti ti-droplet" style="font-size:14px;color:var(--sage-500)"></i>
+              Hidratação
+            </label>
+            <textarea id="hidratacao" name="hidratacao" class="form-control"
+                      placeholder="Quantidade de líquidos ingeridos. Ex: 1,5L de água.">{{ reg.hidratacao if reg else '' }}</textarea>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label" for="eliminacoes">
+              <i class="ti ti-notes" style="font-size:14px;color:var(--sage-500)"></i>
+              Eliminações
+            </label>
+            <textarea id="eliminacoes" name="eliminacoes" class="form-control"
+                      placeholder="Urina, intestino — frequência e características.">{{ reg.eliminacoes if reg else '' }}</textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="mobilidade">
+              <i class="ti ti-activity" style="font-size:14px;color:var(--sage-500)"></i>
+              Mobilidade
+            </label>
+            <textarea id="mobilidade" name="mobilidade" class="form-control"
+                      placeholder="Ficou deitado, sentou, caminhou? Precisou de ajuda?">{{ reg.mobilidade if reg else '' }}</textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Intercorrências -->
+    <div class="card form-section">
+      <div class="card-header">
+        <div class="form-section-title" style="margin:0;border:none;padding:0;color:#8b2e2e">
+          <i class="ti ti-alert-triangle" style="color:#e24b4a"></i> Intercorrências
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="form-group alert-field">
+          <label class="form-label" for="intercorrencias">
+            Quedas, dor, febre, alterações de comportamento, etc.
+          </label>
+          <textarea id="intercorrencias" name="intercorrencias" class="form-control"
+                    placeholder="Deixe em branco se não houver intercorrências neste turno.">{{ reg.intercorrencias if reg else '' }}</textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- Observações gerais -->
+    <div class="card form-section">
+      <div class="card-header">
+        <div class="form-section-title" style="margin:0;border:none;padding:0">
+          <i class="ti ti-message-dots"></i> Observações gerais
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="form-group">
+          <textarea id="observacoes" name="observacoes" class="form-control"
+                    style="min-height:100px"
+                    placeholder="Qualquer informação relevante para o próximo cuidador...">{{ reg.observacoes if reg else '' }}</textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- ações -->
+    <div class="footer-actions">
+      <button type="submit" class="btn btn-primary">
+        <i class="ti ti-check"></i>
+        {% if reg %}Salvar alterações{% else %}Concluir registro{% endif %}
+      </button>
+      <a href="{{ url_for('dashboard.index') }}" class="btn btn-secondary">
+        Cancelar
+      </a>
+    </div>
+  </form>
+</div>
+{% endblock %}

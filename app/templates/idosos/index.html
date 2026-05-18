@@ -1,0 +1,223 @@
+{% extends 'base.html' %}
+
+{% block title %}Idosos — HelpAge{% endblock %}
+
+{% block topbar_title %}<strong>Idosos</strong>{% endblock %}
+
+{% block content %}
+<style>
+  .idosos-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+  }
+
+  .idoso-card {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    transition: box-shadow .15s;
+  }
+  .idoso-card:hover { box-shadow: var(--shadow-md); }
+
+  .idoso-card__header {
+    padding: 20px 20px 16px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(135deg, var(--sage-50), var(--white));
+  }
+
+  .idoso-avatar {
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    background: var(--sage-200);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-display);
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: var(--sage-700);
+    flex-shrink: 0;
+    border: 3px solid var(--sage-100);
+  }
+
+  .idoso-info { flex: 1; min-width: 0; }
+  .idoso-nome {
+    font-family: var(--font-display);
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .idoso-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 5px;
+  }
+  .idoso-meta span {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: .76rem;
+    color: var(--text-muted);
+  }
+  .idoso-meta i { font-size: 13px; }
+
+  .idoso-card__body { padding: 14px 20px; }
+
+  .info-row {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin-bottom: 12px;
+  }
+  .info-row:last-child { margin-bottom: 0; }
+  .info-label {
+    font-size: .7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .07em;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .info-label i { font-size: 13px; color: var(--sage-400); }
+  .info-value {
+    font-size: .85rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+  .info-vazio {
+    font-size: .82rem;
+    color: var(--text-muted);
+    font-style: italic;
+  }
+
+  .idoso-card__footer {
+    padding: 10px 20px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--sage-50);
+  }
+
+  .idoso-stats {
+    display: flex;
+    gap: 12px;
+    margin-left: auto;
+  }
+  .idoso-stat {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: .75rem;
+    color: var(--text-muted);
+  }
+  .idoso-stat i { font-size: 14px; color: var(--sage-400); }
+  .idoso-stat strong { color: var(--text-secondary); font-weight: 600; }
+</style>
+
+<div class="page-header">
+  <div>
+    <h1>Idosos cadastrados</h1>
+    <p>Gerencie os perfis dos idosos sob cuidado.</p>
+  </div>
+  <a href="{{ url_for('idosos.novo') }}" class="btn btn-primary">
+    <i class="ti ti-user-plus"></i> Cadastrar idoso
+  </a>
+</div>
+
+{% if idosos %}
+<div class="idosos-grid">
+  {% for idoso in idosos %}
+  <div class="idoso-card">
+    <div class="idoso-card__header">
+      <div class="idoso-avatar">{{ idoso.nome[0].upper() }}</div>
+      <div class="idoso-info">
+        <div class="idoso-nome">{{ idoso.nome }}</div>
+        <div class="idoso-meta">
+          <span>
+            <i class="ti ti-cake"></i>
+            {{ idoso.data_nascimento.strftime('%d/%m/%Y') }}
+          </span>
+          <span>
+            <i class="ti ti-calendar-user"></i>
+            {{ idoso.idade }} anos
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div class="idoso-card__body">
+      <div class="info-row">
+        <div class="info-label">
+          <i class="ti ti-stethoscope"></i> Condições médicas
+        </div>
+        {% if idoso.condicoes %}
+          <div class="info-value">{{ idoso.condicoes }}</div>
+        {% else %}
+          <div class="info-vazio">Nenhuma condição registrada</div>
+        {% endif %}
+      </div>
+
+      <div class="info-row">
+        <div class="info-label">
+          <i class="ti ti-notes"></i> Observações
+        </div>
+        {% if idoso.observacoes %}
+          <div class="info-value">{{ idoso.observacoes }}</div>
+        {% else %}
+          <div class="info-vazio">Sem observações</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="idoso-card__footer">
+      <a href="{{ url_for('idosos.editar', idoso_id=idoso.id) }}" class="btn btn-secondary btn-sm">
+        <i class="ti ti-edit"></i> Editar
+      </a>
+
+      <div class="idoso-stats">
+        <span class="idoso-stat">
+          <i class="ti ti-pill"></i>
+          <strong>{{ idoso.medicamentos.filter_by(ativo=True).count() }}</strong> rem.
+        </span>
+        <span class="idoso-stat">
+          <i class="ti ti-notebook"></i>
+          <strong>{{ idoso.registros.count() }}</strong> reg.
+        </span>
+      </div>
+
+      <form method="POST"
+            action="{{ url_for('idosos.excluir', idoso_id=idoso.id) }}"
+            onsubmit="return confirm('Excluir {{ idoso.nome }}? Esta ação não pode ser desfeita.')">
+        <button type="submit" class="btn btn-danger btn-sm">
+          <i class="ti ti-trash"></i>
+        </button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{% else %}
+<div class="card">
+  <div class="card-body">
+    <div class="empty-state">
+      <i class="ti ti-user-off"></i>
+      <p>Nenhum idoso cadastrado ainda.</p>
+      <a href="{{ url_for('idosos.novo') }}" class="btn btn-primary mt-2">
+        <i class="ti ti-user-plus"></i> Cadastrar primeiro idoso
+      </a>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

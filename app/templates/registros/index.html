@@ -1,0 +1,239 @@
+{% extends 'base.html' %}
+
+{% block title %}Diário de Cuidado — HelpAge{% endblock %}
+
+{% block topbar_title %}<strong>Diário de Cuidado</strong>{% endblock %}
+
+{% block content %}
+<style>
+  .registros-list {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .reg-card {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    transition: box-shadow .15s;
+  }
+  .reg-card:hover { box-shadow: var(--shadow-md); }
+
+  .reg-card__header {
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-bottom: 1px solid var(--border);
+    background: var(--sage-50);
+  }
+
+  .reg-periodo {
+    width: 42px; height: 42px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+  .rp-manha { background: #fef8e7; }
+  .rp-tarde  { background: #fff0e6; }
+  .rp-noite  { background: #eef0fe; }
+
+  .reg-meta { flex: 1; min-width: 0; }
+  .reg-title {
+    font-weight: 600;
+    font-size: .92rem;
+    color: var(--text-primary);
+  }
+  .reg-sub {
+    font-size: .76rem;
+    color: var(--text-muted);
+    margin-top: 2px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .reg-sub span { display: flex; align-items: center; gap: 3px; }
+  .reg-sub i { font-size: 13px; }
+
+  .reg-card__body {
+    padding: 16px 18px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+  }
+
+  .reg-campo {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .reg-campo__label {
+    font-size: .69rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .07em;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .reg-campo__label i { font-size: 13px; color: var(--sage-400); }
+  .reg-campo__value {
+    font-size: .85rem;
+    color: var(--text-primary);
+    line-height: 1.5;
+  }
+  .reg-campo__empty {
+    font-size: .82rem;
+    color: var(--text-muted);
+    font-style: italic;
+  }
+
+  .reg-card__footer {
+    padding: 10px 18px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* humor badge */
+  .humor-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: .78rem;
+    font-weight: 600;
+  }
+  .h-otimo   { background: var(--sage-100); color: var(--sage-700); }
+  .h-bom     { background: #e8f4fd; color: #1d5a8a; }
+  .h-neutro  { background: #f0f0ee; color: #555; }
+  .h-agitado { background: #fef8e7; color: #7a5c1a; }
+  .h-triste  { background: #fdecea; color: #8b2e2e; }
+
+  .humor-icons {
+    font-size: 1.1rem;
+  }
+</style>
+
+<div class="page-header">
+  <div>
+    <h1>Diário de cuidado</h1>
+    <p>Últimos {{ registros | length }} registros de turnos.</p>
+  </div>
+</div>
+
+{% if registros %}
+<div class="registros-list">
+  {% for reg in registros %}
+  <div class="reg-card">
+    <div class="reg-card__header">
+      <div class="reg-periodo rp-{{ reg.turno.periodo }}">
+        {% if reg.turno.periodo == 'manha' %}☀️
+        {% elif reg.turno.periodo == 'tarde' %}🌤️
+        {% else %}🌙{% endif %}
+      </div>
+      <div class="reg-meta">
+        <div class="reg-title">
+          {{ reg.idoso.nome }} —
+          {% if reg.turno.periodo == 'manha' %}Manhã
+          {% elif reg.turno.periodo == 'tarde' %}Tarde
+          {% else %}Noite{% endif %}
+        </div>
+        <div class="reg-sub">
+          <span><i class="ti ti-calendar"></i>{{ reg.turno.data.strftime('%d/%m/%Y') }}</span>
+          <span><i class="ti ti-user"></i>{{ reg.cuidador.nome }}</span>
+          <span><i class="ti ti-clock"></i>{{ reg.criado_em.strftime('%H:%M') }}</span>
+        </div>
+      </div>
+      <!-- humor -->
+      {% if reg.humor %}
+      <div class="humor-badge h-{{ reg.humor }}">
+        {% if reg.humor == 'otimo' %}😄 Ótimo
+        {% elif reg.humor == 'bom' %}🙂 Bom
+        {% elif reg.humor == 'neutro' %}😐 Neutro
+        {% elif reg.humor == 'agitado' %}😰 Agitado
+        {% else %}😢 Triste{% endif %}
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="reg-card__body">
+      <div class="reg-campo">
+        <div class="reg-campo__label"><i class="ti ti-tools-kitchen-2"></i>Alimentação</div>
+        {% if reg.alimentacao %}
+          <div class="reg-campo__value">{{ reg.alimentacao }}</div>
+        {% else %}
+          <div class="reg-campo__empty">Não informado</div>
+        {% endif %}
+      </div>
+
+      <div class="reg-campo">
+        <div class="reg-campo__label"><i class="ti ti-droplet"></i>Hidratação</div>
+        {% if reg.hidratacao %}
+          <div class="reg-campo__value">{{ reg.hidratacao }}</div>
+        {% else %}
+          <div class="reg-campo__empty">Não informado</div>
+        {% endif %}
+      </div>
+
+      <div class="reg-campo">
+        <div class="reg-campo__label"><i class="ti ti-activity"></i>Mobilidade</div>
+        {% if reg.mobilidade %}
+          <div class="reg-campo__value">{{ reg.mobilidade }}</div>
+        {% else %}
+          <div class="reg-campo__empty">Não informado</div>
+        {% endif %}
+      </div>
+
+      {% if reg.intercorrencias %}
+      <div class="reg-campo" style="grid-column: 1 / -1">
+        <div class="reg-campo__label" style="color:#8b2e2e">
+          <i class="ti ti-alert-triangle" style="color:#e24b4a"></i>Intercorrências
+        </div>
+        <div class="reg-campo__value" style="color:#8b2e2e;background:#fdecea;padding:8px 10px;border-radius:7px;border-left:3px solid #e24b4a">
+          {{ reg.intercorrencias }}
+        </div>
+      </div>
+      {% endif %}
+
+      {% if reg.observacoes %}
+      <div class="reg-campo" style="grid-column: 1 / -1">
+        <div class="reg-campo__label"><i class="ti ti-notes"></i>Observações</div>
+        <div class="reg-campo__value">{{ reg.observacoes }}</div>
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="reg-card__footer">
+      <a href="{{ url_for('registros.detalhe', reg_id=reg.id) }}"
+         class="btn btn-secondary btn-sm">
+        <i class="ti ti-eye"></i> Ver completo
+      </a>
+      <a href="{{ url_for('registros.editar', reg_id=reg.id) }}"
+         class="btn btn-ghost btn-sm">
+        <i class="ti ti-edit"></i> Editar
+      </a>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{% else %}
+<div class="card">
+  <div class="card-body">
+    <div class="empty-state">
+      <i class="ti ti-notebook-off"></i>
+      <p>Nenhum registro de cuidado ainda.</p>
+      <p class="text-sm mt-1">Os registros aparecem aqui após concluir um turno.</p>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

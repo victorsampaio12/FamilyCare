@@ -1,0 +1,433 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard — HelpAge{% endblock %}
+
+{% block topbar_title %}
+  <strong>Dashboard</strong>
+  <span style="font-weight:300;color:var(--text-muted);margin-left:6px;font-size:.9rem">
+    — {{ hoje.strftime('%A, %d de %B') }}
+  </span>
+{% endblock %}
+
+{% block content %}
+<style>
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .stat-card {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .stat-card__icon {
+    width: 38px; height: 38px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 8px;
+    font-size: 20px;
+  }
+  .ic-green  { background: var(--sage-100); color: var(--sage-600); }
+  .ic-yellow { background: #fef8e7; color: #7a5c1a; }
+  .ic-blue   { background: #e8f4fd; color: #1d5a8a; }
+  .ic-red    { background: #fdecea; color: #8b2e2e; }
+
+  .stat-card__label {
+    font-size: .72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .07em;
+    color: var(--text-muted);
+  }
+  .stat-card__value {
+    font-family: var(--font-display);
+    font-size: 2.2rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1;
+  }
+  .stat-card__sub {
+    font-size: .78rem;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+
+  /* grid principal */
+  .main-grid {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 20px;
+    align-items: start;
+  }
+
+  /* turno ativo */
+  .turno-ativo {
+    background: linear-gradient(135deg, var(--sage-600) 0%, var(--sage-800) 100%);
+    border-radius: var(--radius-md);
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  .turno-ativo__icon {
+    width: 48px; height: 48px;
+    background: rgba(255,255,255,.15);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px;
+    color: #fff;
+    flex-shrink: 0;
+  }
+  .turno-ativo__info { flex: 1; }
+  .turno-ativo__label {
+    font-size: .72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: rgba(255,255,255,.6);
+    margin-bottom: 3px;
+  }
+  .turno-ativo__title {
+    font-family: var(--font-display);
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #fff;
+  }
+  .turno-ativo__sub {
+    font-size: .8rem;
+    color: rgba(255,255,255,.65);
+    margin-top: 2px;
+  }
+  .turno-ativo__btn {
+    background: rgba(255,255,255,.15);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,.25);
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: .82rem;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background .15s;
+    display: flex; align-items: center; gap: 6px;
+    text-decoration: none;
+  }
+  .turno-ativo__btn:hover { background: rgba(255,255,255,.25); }
+  .turno-ativo__btn i { font-size: 15px; }
+
+  /* tabela de remédios pendentes */
+  .remedio-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .remedio-row:last-child { border-bottom: none; }
+  .remedio-hora {
+    font-family: var(--font-display);
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    width: 54px;
+    flex-shrink: 0;
+    text-align: center;
+  }
+  .remedio-hora span {
+    display: block;
+    font-family: var(--font-body);
+    font-size: .65rem;
+    font-weight: 400;
+    color: var(--text-muted);
+  }
+  .remedio-info { flex: 1; min-width: 0; }
+  .remedio-nome {
+    font-weight: 500;
+    font-size: .9rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .remedio-dosagem {
+    font-size: .77rem;
+    color: var(--text-muted);
+    margin-top: 1px;
+  }
+  .remedio-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+  /* turnos do dia (coluna direita) */
+  .turno-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .turno-item:last-child { border-bottom: none; }
+  .turno-periodo {
+    width: 42px; height: 42px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+  .tp-manha  { background: #fef8e7; }
+  .tp-tarde  { background: #fff0e6; }
+  .tp-noite  { background: #eef0fe; }
+  .turno-info { flex: 1; min-width: 0; }
+  .turno-cuidador {
+    font-weight: 500;
+    font-size: .88rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .turno-detalhe {
+    font-size: .76rem;
+    color: var(--text-muted);
+    margin-top: 1px;
+  }
+
+  /* idosos (cards pequenos) */
+  .idoso-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .idoso-card {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: box-shadow .15s;
+  }
+  .idoso-card:hover { box-shadow: var(--shadow-md); }
+  .idoso-avatar {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    background: var(--sage-200);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-display);
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--sage-700);
+    flex-shrink: 0;
+  }
+  .idoso-info { min-width: 0; }
+  .idoso-nome {
+    font-weight: 500;
+    font-size: .9rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .idoso-idade {
+    font-size: .75rem;
+    color: var(--text-muted);
+    margin-top: 1px;
+  }
+
+  @media (max-width: 900px) {
+    .main-grid { grid-template-columns: 1fr; }
+    .stat-grid { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 560px) {
+    .stat-grid { grid-template-columns: 1fr; }
+  }
+</style>
+
+<!-- saudação -->
+<div class="page-header">
+  <div>
+    <h1>Olá, {{ current_user.nome.split()[0] }} 👋</h1>
+    <p>Aqui está o resumo do cuidado de hoje.</p>
+  </div>
+</div>
+
+<!-- cards de idosos -->
+{% if idosos %}
+<div class="idoso-grid">
+  {% for idoso in idosos %}
+  <div class="idoso-card">
+    <div class="idoso-avatar">{{ idoso.nome[0].upper() }}</div>
+    <div class="idoso-info">
+      <div class="idoso-nome">{{ idoso.nome }}</div>
+      <div class="idoso-idade">{{ idoso.idade }} anos</div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- stat cards -->
+<div class="stat-grid">
+  <div class="stat-card">
+    <div class="stat-card__icon ic-yellow"><i class="ti ti-calendar-week"></i></div>
+    <div class="stat-card__label">Turnos hoje</div>
+    <div class="stat-card__value">{{ turnos_hoje | length }}</div>
+    <div class="stat-card__sub">
+      {% set ativos = turnos_hoje | selectattr('status', 'eq', 'em_andamento') | list %}
+      {% if ativos %}{{ ativos | length }} em andamento{% else %}nenhum ativo{% endif %}
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-card__icon ic-red"><i class="ti ti-pill"></i></div>
+    <div class="stat-card__label">Remédios pendentes</div>
+    <div class="stat-card__value">{{ pendentes | length }}</div>
+    <div class="stat-card__sub">para hoje</div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-card__icon ic-green"><i class="ti ti-check"></i></div>
+    <div class="stat-card__label">Meu turno hoje</div>
+    <div class="stat-card__value" style="font-size:1.3rem;margin-top:4px">
+      {% if meu_turno %}
+        {% if meu_turno.periodo == 'manha' %}☀️ Manhã
+        {% elif meu_turno.periodo == 'tarde' %}🌤️ Tarde
+        {% else %}🌙 Noite{% endif %}
+      {% else %}
+        —
+      {% endif %}
+    </div>
+    <div class="stat-card__sub">
+      {% if meu_turno %}{{ meu_turno.status | replace('_', ' ') | title }}{% else %}sem turno{% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- turno ativo do usuário -->
+{% if meu_turno %}
+<div class="turno-ativo">
+  <div class="turno-ativo__icon">
+    {% if meu_turno.periodo == 'manha' %}<i class="ti ti-sun"></i>
+    {% elif meu_turno.periodo == 'tarde' %}<i class="ti ti-cloud-sun"></i>
+    {% else %}<i class="ti ti-moon"></i>{% endif %}
+  </div>
+  <div class="turno-ativo__info">
+    <div class="turno-ativo__label">Seu turno ativo</div>
+    <div class="turno-ativo__title">
+      Turno da {% if meu_turno.periodo == 'manha' %}Manhã{% elif meu_turno.periodo == 'tarde' %}Tarde{% else %}Noite{% endif %}
+      — {{ meu_turno.idoso.nome }}
+    </div>
+    <div class="turno-ativo__sub">Status: {{ meu_turno.status | replace('_', ' ') | title }}</div>
+  </div>
+  <a href="{{ url_for('registros.novo', turno_id=meu_turno.id) }}" class="turno-ativo__btn">
+    <i class="ti ti-notebook"></i> Registrar turno
+  </a>
+</div>
+{% endif %}
+
+<!-- grid principal -->
+<div class="main-grid">
+
+  <!-- coluna esquerda: remédios pendentes -->
+  <div class="card">
+    <div class="card-header">
+      <i class="ti ti-pill" style="color:var(--sage-500);font-size:18px"></i>
+      <h2>Remédios pendentes hoje</h2>
+      <a href="{{ url_for('medicamentos.novo') }}" class="btn btn-primary btn-sm">
+        <i class="ti ti-plus"></i> Novo
+      </a>
+    </div>
+    <div class="card-body">
+      {% if pendentes %}
+        {% for adm in pendentes %}
+        <div class="remedio-row">
+          <div class="remedio-hora">
+            {{ adm.data_prevista.strftime('%H:%M') }}
+            <span>{{ adm.data_prevista.strftime('%d/%m') }}</span>
+          </div>
+          <div class="remedio-info">
+            <div class="remedio-nome">{{ adm.medicamento.nome }}</div>
+            <div class="remedio-dosagem">
+              {{ adm.medicamento.dosagem }} — {{ adm.medicamento.idoso.nome }}
+            </div>
+          </div>
+          <div class="remedio-actions">
+            <form method="POST"
+                  action="{{ url_for('medicamentos.registrar_administracao', adm_id=adm.id) }}"
+                  style="display:inline">
+              <input type="hidden" name="status" value="administrado">
+              <button type="submit" class="btn btn-primary btn-sm" title="Marcar como administrado">
+                <i class="ti ti-check"></i>
+              </button>
+            </form>
+            <form method="POST"
+                  action="{{ url_for('medicamentos.registrar_administracao', adm_id=adm.id) }}"
+                  style="display:inline">
+              <input type="hidden" name="status" value="pulado">
+              <button type="submit" class="btn btn-secondary btn-sm" title="Marcar como pulado">
+                <i class="ti ti-x"></i>
+              </button>
+            </form>
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="empty-state">
+          <i class="ti ti-circle-check"></i>
+          <p>Nenhum remédio pendente por agora.</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- coluna direita: turnos do dia -->
+  <div class="card">
+    <div class="card-header">
+      <i class="ti ti-calendar-week" style="color:var(--sage-500);font-size:18px"></i>
+      <h2>Turnos de hoje</h2>
+      <a href="{{ url_for('turnos.index') }}" class="btn btn-secondary btn-sm">
+        Ver escala
+      </a>
+    </div>
+    <div class="card-body">
+      {% if turnos_hoje %}
+        {% for turno in turnos_hoje %}
+        <div class="turno-item">
+          <div class="turno-periodo tp-{{ turno.periodo }}">
+            {% if turno.periodo == 'manha' %}☀️
+            {% elif turno.periodo == 'tarde' %}🌤️
+            {% else %}🌙{% endif %}
+          </div>
+          <div class="turno-info">
+            <div class="turno-cuidador">{{ turno.cuidador.nome }}</div>
+            <div class="turno-detalhe">
+              {% if turno.periodo == 'manha' %}Manhã
+              {% elif turno.periodo == 'tarde' %}Tarde
+              {% else %}Noite{% endif %}
+              · {{ turno.idoso.nome }}
+            </div>
+          </div>
+          <span class="badge
+            {% if turno.status == 'concluido' %}badge-green
+            {% elif turno.status == 'em_andamento' %}badge-yellow
+            {% elif turno.status == 'cancelado' %}badge-red
+            {% else %}badge-blue{% endif %}">
+            {{ turno.status | replace('_', ' ') | title }}
+          </span>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="empty-state">
+          <i class="ti ti-calendar-off"></i>
+          <p>Nenhum turno agendado para hoje.</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,200 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if idoso %}Editar{% else %}Cadastrar{% endif %} Idoso — HelpAge{% endblock %}
+
+{% block topbar_title %}
+  <strong>{% if idoso %}Editar{% else %}Cadastrar{% endif %} Idoso</strong>
+{% endblock %}
+
+{% block content %}
+<style>
+  .form-wrap { max-width: 560px; }
+
+  .form-section-title {
+    font-family: var(--font-display);
+    font-size: .9rem; font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 14px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .form-section-title i { color: var(--sage-500); font-size: 18px; }
+
+  .form-group { display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; }
+  .form-group:last-child { margin-bottom: 0; }
+  .form-label { font-size: .8rem; font-weight: 500; color: var(--text-secondary); }
+  .form-control {
+    padding: 10px 12px;
+    border: 1.5px solid var(--border);
+    border-radius: 9px;
+    background: var(--cream);
+    color: var(--text-primary);
+    font-family: var(--font-body);
+    font-size: .9rem;
+    outline: none;
+    transition: border-color .15s, box-shadow .15s;
+    width: 100%;
+  }
+  .form-control:focus {
+    border-color: var(--sage-400);
+    box-shadow: 0 0 0 3px rgba(79,165,114,.15);
+    background: var(--white);
+  }
+  textarea.form-control { resize: vertical; min-height: 90px; }
+  .form-hint { font-size: .74rem; color: var(--text-muted); margin-top: 3px; }
+
+  /* preview do avatar ao digitar o nome */
+  .avatar-preview {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+    background: var(--sage-50);
+    border: 1px solid var(--sage-200);
+    border-radius: 10px;
+    margin-bottom: 20px;
+  }
+  .avatar-circle {
+    width: 52px; height: 52px;
+    border-radius: 50%;
+    background: var(--sage-200);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-display);
+    font-size: 1.4rem; font-weight: 600;
+    color: var(--sage-700);
+    flex-shrink: 0;
+    transition: background .2s;
+  }
+  .avatar-txt { font-size: .82rem; color: var(--text-muted); }
+  .avatar-txt strong { display: block; font-size: .92rem; color: var(--text-secondary); font-weight: 500; }
+
+  .footer-actions {
+    display: flex; gap: 10px; align-items: center;
+    padding-top: 20px; border-top: 1px solid var(--border);
+  }
+
+  /* idade calculada em tempo real */
+  .idade-hint {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: .76rem; color: var(--sage-600);
+    font-weight: 500; margin-top: 4px;
+  }
+  .idade-hint i { font-size: 13px; }
+</style>
+
+<div class="page-header">
+  <div>
+    <h1>{% if idoso %}Editar perfil{% else %}Cadastrar idoso{% endif %}</h1>
+    <p>{% if idoso %}Atualize os dados de {{ idoso.nome }}.{% else %}Preencha os dados do idoso que será cuidado.{% endif %}</p>
+  </div>
+</div>
+
+<div class="form-wrap">
+
+  <!-- preview do avatar -->
+  <div class="avatar-preview">
+    <div class="avatar-circle" id="avatarCircle">
+      {{ idoso.nome[0].upper() if idoso else '?' }}
+    </div>
+    <div class="avatar-txt">
+      <strong id="avatarNome">{{ idoso.nome if idoso else 'Nome do idoso' }}</strong>
+      Perfil do idoso
+    </div>
+  </div>
+
+  <form method="POST"
+        action="{% if idoso %}{{ url_for('idosos.editar', idoso_id=idoso.id) }}{% else %}{{ url_for('idosos.novo') }}{% endif %}">
+
+    <div class="card">
+      <div class="card-header">
+        <div class="form-section-title" style="margin:0;border:none;padding:0">
+          <i class="ti ti-user"></i> Dados pessoais
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="form-group">
+          <label class="form-label" for="nome">Nome completo *</label>
+          <input type="text" id="nome" name="nome" class="form-control"
+                 placeholder="Ex: Maria das Graças Silva"
+                 value="{{ idoso.nome if idoso else request.form.get('nome', '') }}"
+                 required oninput="atualizarPreview(this.value)">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="data_nascimento">Data de nascimento *</label>
+          <input type="date" id="data_nascimento" name="data_nascimento" class="form-control"
+                 value="{{ idoso.data_nascimento.isoformat() if idoso else request.form.get('data_nascimento', '') }}"
+                 required oninput="calcularIdade(this.value)">
+          <span class="idade-hint" id="idadeHint" style="display:none">
+            <i class="ti ti-cake"></i>
+            <span id="idadeTexto"></span>
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mt-3">
+      <div class="card-header">
+        <div class="form-section-title" style="margin:0;border:none;padding:0">
+          <i class="ti ti-stethoscope"></i> Saúde e observações
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="form-group">
+          <label class="form-label" for="condicoes">Condições médicas</label>
+          <textarea id="condicoes" name="condicoes" class="form-control"
+                    placeholder="Ex: Hipertensão, Diabetes tipo 2, Osteoporose...">{{ idoso.condicoes if idoso else request.form.get('condicoes', '') }}</textarea>
+          <span class="form-hint">Liste as condições separadas por vírgula.</span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="observacoes">Observações gerais</label>
+          <textarea id="observacoes" name="observacoes" class="form-control"
+                    placeholder="Ex: Alergia a penicilina. Prefere banho pela manhã. Gosta de ouvir rádio.">{{ idoso.observacoes if idoso else request.form.get('observacoes', '') }}</textarea>
+          <span class="form-hint">Alergias, preferências, informações importantes para os cuidadores.</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer-actions">
+      <button type="submit" class="btn btn-primary">
+        <i class="ti ti-{% if idoso %}check{% else %}user-plus{% endif %}"></i>
+        {% if idoso %}Salvar alterações{% else %}Cadastrar idoso{% endif %}
+      </button>
+      <a href="{{ url_for('idosos.index') }}" class="btn btn-secondary">Cancelar</a>
+    </div>
+  </form>
+</div>
+
+<script>
+  function atualizarPreview(nome) {
+    const inicial = nome.trim()[0]?.toUpperCase() || '?';
+    document.getElementById('avatarCircle').textContent = inicial;
+    document.getElementById('avatarNome').textContent   = nome.trim() || 'Nome do idoso';
+  }
+
+  function calcularIdade(dataStr) {
+    const hint = document.getElementById('idadeHint');
+    const txt  = document.getElementById('idadeTexto');
+    if (!dataStr) { hint.style.display = 'none'; return; }
+
+    const nasc  = new Date(dataStr);
+    const hoje  = new Date();
+    let idade   = hoje.getFullYear() - nasc.getFullYear();
+    const m     = hoje.getMonth() - nasc.getMonth();
+    if (m < 0 || (m === 0 && hoje.getDate() < nasc.getDate())) idade--;
+
+    if (idade >= 0 && idade < 130) {
+      txt.textContent      = `${idade} anos`;
+      hint.style.display   = 'inline-flex';
+    } else {
+      hint.style.display = 'none';
+    }
+  }
+
+  // inicializa se já tem valor (edição)
+  const dnInput = document.getElementById('data_nascimento');
+  if (dnInput.value) calcularIdade(dnInput.value);
+</script>
+{% endblock %}

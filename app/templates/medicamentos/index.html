@@ -1,0 +1,329 @@
+{% extends 'base.html' %}
+
+{% block title %}Medicamentos — HelpAge{% endblock %}
+
+{% block topbar_title %}<strong>Medicamentos</strong>{% endblock %}
+
+{% block content %}
+<style>
+  .med-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 16px;
+  }
+
+  .med-card {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    transition: box-shadow .15s;
+  }
+  .med-card:hover { box-shadow: var(--shadow-md); }
+
+  .med-card__header {
+    padding: 16px 18px 12px;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .med-icon {
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    background: var(--sage-100);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+    color: var(--sage-600);
+    flex-shrink: 0;
+  }
+  .med-icon.inativo { background: #f0f0ee; color: #aaa; }
+  .med-info { flex: 1; min-width: 0; }
+  .med-nome {
+    font-weight: 600;
+    font-size: .95rem;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .med-dosagem {
+    font-size: .78rem;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+  .med-idoso {
+    font-size: .75rem;
+    font-weight: 500;
+    color: var(--sage-600);
+    margin-top: 3px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .med-idoso i { font-size: 13px; }
+
+  .med-card__body { padding: 14px 18px; }
+
+  .med-horarios {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+  .horario-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--sage-50);
+    border: 1px solid var(--sage-200);
+    color: var(--sage-700);
+    font-size: .73rem;
+    font-weight: 600;
+    padding: 3px 9px;
+    border-radius: 20px;
+  }
+  .horario-pill i { font-size: 12px; }
+
+  .med-instrucoes {
+    font-size: .8rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    margin-bottom: 10px;
+    padding: 8px 10px;
+    background: var(--sage-50);
+    border-radius: 7px;
+    border-left: 3px solid var(--sage-300);
+  }
+
+  .med-datas {
+    display: flex;
+    gap: 12px;
+    font-size: .74rem;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+  }
+  .med-datas span { display: flex; align-items: center; gap: 4px; }
+  .med-datas i { font-size: 13px; }
+
+  .med-card__footer {
+    padding: 10px 18px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--sage-50);
+  }
+
+  /* filtro por idoso */
+  .filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+  .filter-btn {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: .82rem;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1.5px solid var(--border);
+    background: var(--white);
+    color: var(--text-secondary);
+    transition: all .15s;
+  }
+  .filter-btn:hover, .filter-btn.active {
+    background: var(--sage-500);
+    color: #fff;
+    border-color: var(--sage-500);
+  }
+
+  .section-title {
+    font-family: var(--font-display);
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin: 24px 0 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+</style>
+
+<div class="page-header">
+  <div>
+    <h1>Medicamentos</h1>
+    <p>Gerencie os remédios e horários de cada idoso.</p>
+  </div>
+  <a href="{{ url_for('medicamentos.novo') }}" class="btn btn-primary">
+    <i class="ti ti-plus"></i> Novo medicamento
+  </a>
+</div>
+
+<!-- filtros por idoso -->
+{% set todos_idosos = idosos %}
+{% if todos_idosos | length > 1 %}
+<div class="filter-bar">
+  <button class="filter-btn active" onclick="filtrar(this, 'todos')">Todos</button>
+  {% for idoso in idosos %}
+  <button class="filter-btn" onclick="filtrar(this, 'idoso-{{ idoso.id }}')">
+    {{ idoso.nome }}
+  </button>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% set tem_medicamentos = false %}
+
+{% for idoso in idosos %}
+  {% set meds_ativos   = idoso.medicamentos.filter_by(ativo=True).all() %}
+  {% set meds_inativos = idoso.medicamentos.filter_by(ativo=False).all() %}
+
+  {% if meds_ativos or meds_inativos %}
+    {% set tem_medicamentos = true %}
+    <div class="idoso-section" data-idoso="idoso-{{ idoso.id }}">
+
+      <div class="section-title">
+        <i class="ti ti-user-heart" style="color:var(--sage-400)"></i>
+        {{ idoso.nome }}
+      </div>
+
+      {% if meds_ativos %}
+      <div class="med-grid">
+        {% for med in meds_ativos %}
+        <div class="med-card">
+          <div class="med-card__header">
+            <div class="med-icon"><i class="ti ti-pill"></i></div>
+            <div class="med-info">
+              <div class="med-nome">{{ med.nome }}</div>
+              <div class="med-dosagem">{{ med.dosagem }}</div>
+              <div class="med-idoso">
+                <i class="ti ti-user"></i> {{ idoso.nome }}
+              </div>
+            </div>
+            <span class="badge badge-green">Ativo</span>
+          </div>
+
+          <div class="med-card__body">
+            <!-- horários -->
+            {% set horarios = med.horarios.all() %}
+            {% if horarios %}
+            <div class="med-horarios">
+              {% for h in horarios %}
+              <span class="horario-pill">
+                <i class="ti ti-clock"></i>
+                {{ h.horario.strftime('%H:%M') }}
+                {% if h.dia_semana is not none %}
+                  · {{ ['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'][h.dia_semana] }}
+                {% else %}
+                  · Diário
+                {% endif %}
+              </span>
+              {% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- instruções -->
+            {% if med.instrucoes %}
+            <div class="med-instrucoes">
+              <i class="ti ti-notes" style="font-size:13px;margin-right:4px"></i>
+              {{ med.instrucoes }}
+            </div>
+            {% endif %}
+
+            <!-- datas -->
+            <div class="med-datas">
+              <span>
+                <i class="ti ti-calendar"></i>
+                Início: {{ med.data_inicio.strftime('%d/%m/%Y') }}
+              </span>
+              {% if med.data_fim %}
+              <span>
+                <i class="ti ti-calendar-off"></i>
+                Fim: {{ med.data_fim.strftime('%d/%m/%Y') }}
+              </span>
+              {% else %}
+              <span><i class="ti ti-infinity"></i> Uso contínuo</span>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="med-card__footer">
+            <a href="{{ url_for('medicamentos.editar', med_id=med.id) }}"
+               class="btn btn-secondary btn-sm">
+              <i class="ti ti-edit"></i> Editar
+            </a>
+            <form method="POST"
+                  action="{{ url_for('medicamentos.desativar', med_id=med.id) }}"
+                  style="margin-left:auto"
+                  onsubmit="return confirm('Desativar {{ med.nome }}?')">
+              <button type="submit" class="btn btn-danger btn-sm">
+                <i class="ti ti-trash"></i> Desativar
+              </button>
+            </form>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <!-- inativos colapsados -->
+      {% if meds_inativos %}
+      <details style="margin-top:12px">
+        <summary style="cursor:pointer;font-size:.82rem;color:var(--text-muted);list-style:none;display:flex;align-items:center;gap:6px;padding:6px 0">
+          <i class="ti ti-chevron-right" style="font-size:14px;transition:transform .15s" id="chev-{{ idoso.id }}"></i>
+          {{ meds_inativos | length }} medicamento(s) inativo(s)
+        </summary>
+        <div class="med-grid" style="margin-top:10px;opacity:.65">
+          {% for med in meds_inativos %}
+          <div class="med-card">
+            <div class="med-card__header">
+              <div class="med-icon inativo"><i class="ti ti-pill-off"></i></div>
+              <div class="med-info">
+                <div class="med-nome" style="color:var(--text-muted)">{{ med.nome }}</div>
+                <div class="med-dosagem">{{ med.dosagem }}</div>
+              </div>
+              <span class="badge badge-gray">Inativo</span>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </details>
+      {% endif %}
+
+    </div>
+  {% endif %}
+{% endfor %}
+
+{% if not tem_medicamentos %}
+<div class="card">
+  <div class="card-body">
+    <div class="empty-state">
+      <i class="ti ti-pill-off"></i>
+      <p>Nenhum medicamento cadastrado ainda.</p>
+      <a href="{{ url_for('medicamentos.novo') }}" class="btn btn-primary mt-2">
+        <i class="ti ti-plus"></i> Cadastrar medicamento
+      </a>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<script>
+function filtrar(btn, filtro) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.idoso-section').forEach(sec => {
+    sec.style.display = (filtro === 'todos' || sec.dataset.idoso === filtro) ? '' : 'none';
+  });
+}
+</script>
+{% endblock %}

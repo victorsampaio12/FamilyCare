@@ -1,0 +1,418 @@
+{% extends 'base.html' %}
+
+{% block title %}Turnos — HelpAge{% endblock %}
+
+{% block topbar_title %}<strong>Escala de Turnos</strong>{% endblock %}
+
+{% block content %}
+<style>
+  /* grade semanal */
+  .escala-wrap { overflow-x: auto; }
+
+  .escala-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 640px;
+  }
+
+  .escala-table thead th {
+    padding: 10px 14px;
+    text-align: center;
+    font-size: .72rem;
+    font-weight: 600;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+    background: var(--sage-50);
+  }
+  .escala-table thead th.hoje-col {
+    background: var(--sage-100);
+    color: var(--sage-700);
+  }
+  .escala-table thead th:first-child {
+    text-align: left;
+    width: 100px;
+  }
+
+  .escala-table tbody td {
+    padding: 10px 8px;
+    border-bottom: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    vertical-align: top;
+    min-width: 110px;
+  }
+  .escala-table tbody td:last-child { border-right: none; }
+  .escala-table tbody td.hoje-col { background: var(--sage-50); }
+
+  .periodo-label {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: .82rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    padding: 4px 6px;
+  }
+  .periodo-label i { font-size: 16px; color: var(--text-muted); }
+
+  /* célula do turno */
+  .turno-cell {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: .8rem;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .turno-cell__nome {
+    font-weight: 500;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .turno-cell__idoso {
+    font-size: .72rem;
+    color: var(--text-muted);
+  }
+  .turno-cell__actions {
+    display: flex;
+    gap: 4px;
+    margin-top: 4px;
+  }
+  .turno-cell__btn {
+    flex: 1;
+    padding: 4px 6px;
+    border-radius: 5px;
+    font-size: .7rem;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--sage-50);
+    color: var(--sage-700);
+    transition: background .15s;
+    display: flex; align-items: center; justify-content: center; gap: 3px;
+  }
+  .turno-cell__btn:hover { background: var(--sage-100); }
+  .turno-cell__btn i { font-size: 12px; }
+  .turno-cell__btn.danger { background: #fdecea; color: #8b2e2e; border-color: #f5bfbf; }
+  .turno-cell__btn.danger:hover { background: #f5bfbf; }
+
+  /* célula vazia */
+  .cell-empty {
+    border: 1.5px dashed var(--border);
+    border-radius: 8px;
+    padding: 10px;
+    text-align: center;
+    cursor: pointer;
+    transition: background .15s, border-color .15s;
+  }
+  .cell-empty:hover {
+    background: var(--sage-50);
+    border-color: var(--sage-300);
+  }
+  .cell-empty i { font-size: 16px; color: var(--sage-300); }
+
+  /* status badges compactos */
+  .turno-cell .badge { font-size: .65rem; padding: 2px 6px; }
+
+  /* modal de agendamento */
+  .modal-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.4);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-backdrop.open { display: flex; }
+  .modal {
+    background: var(--white);
+    border-radius: var(--radius-lg);
+    padding: 28px;
+    width: 100%;
+    max-width: 400px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.2);
+    animation: modalIn .2s ease;
+  }
+  @keyframes modalIn {
+    from { opacity: 0; transform: translateY(12px) scale(.97); }
+    to   { opacity: 1; transform: none; }
+  }
+  .modal h2 {
+    font-family: var(--font-display);
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .modal .modal-sub {
+    font-size: .83rem;
+    color: var(--text-muted);
+    margin-bottom: 20px;
+  }
+  .modal .form-stack { display: flex; flex-direction: column; gap: 14px; }
+  .modal .form-label {
+    display: block;
+    font-size: .8rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin-bottom: 5px;
+  }
+  .modal .form-control {
+    width: 100%;
+    padding: 9px 12px;
+    border: 1.5px solid var(--border);
+    border-radius: 9px;
+    background: var(--cream);
+    font-family: var(--font-body);
+    font-size: .88rem;
+    color: var(--text-primary);
+    outline: none;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .modal .form-control:focus {
+    border-color: var(--sage-400);
+    box-shadow: 0 0 0 3px rgba(79,165,114,.15);
+  }
+  .modal-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 20px;
+    justify-content: flex-end;
+  }
+
+  /* troca de cuidador inline */
+  .trocar-form {
+    display: flex;
+    gap: 5px;
+    margin-top: 5px;
+  }
+  .trocar-form select {
+    flex: 1;
+    padding: 4px 7px;
+    border: 1.5px solid var(--border);
+    border-radius: 6px;
+    font-family: var(--font-body);
+    font-size: .75rem;
+    color: var(--text-primary);
+    background: var(--white);
+    outline: none;
+  }
+  .trocar-form button {
+    padding: 4px 8px;
+    background: var(--sage-500);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: .72rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  @media (max-width: 768px) {
+    .escala-table { min-width: 480px; }
+  }
+</style>
+
+<div class="page-header">
+  <div>
+    <h1>Escala semanal</h1>
+    <p>
+      {{ semana[0].strftime('%d/%m') }} — {{ semana[-1].strftime('%d/%m/%Y') }}
+    </p>
+  </div>
+  <button class="btn btn-primary" onclick="abrirModal()">
+    <i class="ti ti-plus"></i> Agendar turno
+  </button>
+</div>
+
+{% if not idosos %}
+  <div class="card">
+    <div class="card-body">
+      <div class="empty-state">
+        <i class="ti ti-user-off"></i>
+        <p>Nenhum idoso cadastrado ainda. Cadastre um idoso para começar a escala.</p>
+      </div>
+    </div>
+  </div>
+{% else %}
+
+{% for idoso in idosos %}
+<div class="card mb-3">
+  <div class="card-header">
+    <i class="ti ti-user-heart" style="color:var(--sage-500);font-size:18px"></i>
+    <h2>{{ idoso.nome }}</h2>
+    <span class="text-muted text-sm">{{ idoso.idade }} anos</span>
+  </div>
+  <div class="card-body" style="padding:0">
+    <div class="escala-wrap">
+      <table class="escala-table">
+        <thead>
+          <tr>
+            <th>Período</th>
+            {% for dia in semana %}
+            <th class="{% if dia == hoje %}hoje-col{% endif %}">
+              {{ dia.strftime('%a') }}<br>
+              <span style="font-size:.85em;font-weight:400">{{ dia.strftime('%d/%m') }}</span>
+              {% if dia == hoje %}<br><span style="color:var(--sage-500)">●</span>{% endif %}
+            </th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for periodo in periodos %}
+          <tr>
+            <td>
+              <div class="periodo-label">
+                {% if periodo == 'manha' %}<i class="ti ti-sun"></i>Manhã
+                {% elif periodo == 'tarde' %}<i class="ti ti-cloud-sun"></i>Tarde
+                {% else %}<i class="ti ti-moon"></i>Noite{% endif %}
+              </div>
+            </td>
+            {% for dia in semana %}
+            {% set turno = idx.get((idoso.id, dia, periodo)) %}
+            <td class="{% if dia == hoje %}hoje-col{% endif %}">
+              {% if turno %}
+                <div class="turno-cell">
+                  <div class="turno-cell__nome">{{ turno.cuidador.nome.split()[0] }}</div>
+                  <div class="turno-cell__idoso">
+                    <span class="badge
+                      {% if turno.status == 'concluido' %}badge-green
+                      {% elif turno.status == 'em_andamento' %}badge-yellow
+                      {% elif turno.status == 'cancelado' %}badge-red
+                      {% else %}badge-blue{% endif %}">
+                      {{ turno.status | replace('_',' ') | title }}
+                    </span>
+                  </div>
+                  <!-- troca de cuidador -->
+                  <form method="POST"
+                        action="{{ url_for('turnos.trocar', turno_id=turno.id) }}"
+                        class="trocar-form">
+                    <select name="cuidador_id">
+                      {% for c in cuidadores %}
+                      <option value="{{ c.id }}"
+                        {% if c.id == turno.cuidador_id %}selected{% endif %}>
+                        {{ c.nome.split()[0] }}
+                      </option>
+                      {% endfor %}
+                    </select>
+                    <button type="submit" title="Trocar"><i class="ti ti-refresh"></i></button>
+                  </form>
+                  <div class="turno-cell__actions">
+                    <!-- status -->
+                    {% if turno.status != 'concluido' and turno.status != 'cancelado' %}
+                    <form method="POST"
+                          action="{{ url_for('turnos.atualizar_status', turno_id=turno.id) }}"
+                          style="flex:1">
+                      <input type="hidden" name="status"
+                        value="{% if turno.status == 'agendado' %}em_andamento{% else %}concluido{% endif %}">
+                      <button type="submit" class="turno-cell__btn" style="width:100%">
+                        <i class="ti ti-{% if turno.status == 'agendado' %}player-play{% else %}check{% endif %}"></i>
+                        {% if turno.status == 'agendado' %}Iniciar{% else %}Concluir{% endif %}
+                      </button>
+                    </form>
+                    {% endif %}
+                    <!-- cancelar -->
+                    {% if turno.status != 'cancelado' %}
+                    <form method="POST"
+                          action="{{ url_for('turnos.cancelar', turno_id=turno.id) }}">
+                      <button type="submit" class="turno-cell__btn danger" title="Cancelar"
+                              onclick="return confirm('Cancelar este turno?')">
+                        <i class="ti ti-trash"></i>
+                      </button>
+                    </form>
+                    {% endif %}
+                  </div>
+                </div>
+              {% else %}
+                <!-- célula vazia: abre modal pré-preenchido -->
+                <div class="cell-empty"
+                     onclick="abrirModal('{{ idoso.id }}','{{ dia.isoformat() }}','{{ periodo }}')">
+                  <i class="ti ti-plus"></i>
+                </div>
+              {% endif %}
+            </td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endfor %}
+{% endif %}
+
+<!-- modal de agendamento -->
+<div class="modal-backdrop" id="modalBackdrop" onclick="fecharModalFora(event)">
+  <div class="modal">
+    <h2>Agendar turno</h2>
+    <p class="modal-sub">Selecione o cuidador responsável por este período.</p>
+    <form method="POST" action="{{ url_for('turnos.agendar') }}" class="form-stack">
+      <div>
+        <label class="form-label">Idoso</label>
+        <select name="idoso_id" id="m-idoso" class="form-control" required>
+          {% for idoso in idosos %}
+          <option value="{{ idoso.id }}">{{ idoso.nome }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="form-label">Data</label>
+        <input type="date" name="data" id="m-data" class="form-control" required
+               min="{{ semana[0].isoformat() }}" max="{{ semana[-1].isoformat() }}"
+               value="{{ hoje.isoformat() }}">
+      </div>
+      <div>
+        <label class="form-label">Período</label>
+        <select name="periodo" id="m-periodo" class="form-control" required>
+          <option value="manha">☀️ Manhã</option>
+          <option value="tarde">🌤️ Tarde</option>
+          <option value="noite">🌙 Noite</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label">Cuidador responsável</label>
+        <select name="cuidador_id" class="form-control" required>
+          {% for c in cuidadores %}
+          <option value="{{ c.id }}">{{ c.nome }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" onclick="fecharModal()">Cancelar</button>
+        <button type="submit" class="btn btn-primary">
+          <i class="ti ti-calendar-plus"></i> Agendar
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  const backdrop = document.getElementById('modalBackdrop');
+
+  function abrirModal(idosoId, data, periodo) {
+    if (idosoId)  document.getElementById('m-idoso').value   = idosoId;
+    if (data)     document.getElementById('m-data').value    = data;
+    if (periodo)  document.getElementById('m-periodo').value = periodo;
+    backdrop.classList.add('open');
+  }
+
+  function fecharModal() {
+    backdrop.classList.remove('open');
+  }
+
+  function fecharModalFora(e) {
+    if (e.target === backdrop) fecharModal();
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') fecharModal();
+  });
+</script>
+{% endblock %}

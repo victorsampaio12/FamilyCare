@@ -1,0 +1,373 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if med %}Editar{% else %}Novo{% endif %} Medicamento — HelpAge{% endblock %}
+
+{% block topbar_title %}
+  <strong>{% if med %}Editar{% else %}Novo{% endif %} Medicamento</strong>
+{% endblock %}
+
+{% block content %}
+<style>
+  .form-wrap {
+    max-width: 680px;
+  }
+
+  .horarios-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .horario-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--sage-50);
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    padding: 10px 12px;
+  }
+  .horario-row i { color: var(--sage-500); font-size: 18px; flex-shrink: 0; }
+  .horario-row select,
+  .horario-row input[type="time"] {
+    padding: 7px 10px;
+    border: 1.5px solid var(--border);
+    border-radius: 7px;
+    background: var(--white);
+    font-family: var(--font-body);
+    font-size: .88rem;
+    color: var(--text-primary);
+    outline: none;
+    transition: border-color .15s;
+  }
+  .horario-row select:focus,
+  .horario-row input[type="time"]:focus {
+    border-color: var(--sage-400);
+    box-shadow: 0 0 0 3px rgba(79,165,114,.15);
+  }
+  .horario-row .remove-btn {
+    margin-left: auto;
+    width: 30px; height: 30px;
+    border-radius: 7px;
+    background: #fdecea;
+    color: #8b2e2e;
+    border: none;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+    transition: background .15s;
+  }
+  .horario-row .remove-btn:hover { background: #f5bfbf; }
+
+  .add-horario-btn {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 14px;
+    border: 1.5px dashed var(--sage-300);
+    border-radius: 9px;
+    background: transparent;
+    color: var(--sage-600);
+    font-family: var(--font-body);
+    font-size: .85rem;
+    font-weight: 500;
+    cursor: pointer;
+    width: 100%;
+    justify-content: center;
+    transition: background .15s, border-color .15s;
+  }
+  .add-horario-btn:hover {
+    background: var(--sage-50);
+    border-color: var(--sage-400);
+  }
+  .add-horario-btn i { font-size: 18px; }
+
+  .form-section {
+    margin-bottom: 24px;
+  }
+  .form-section-title {
+    font-family: var(--font-display);
+    font-size: .9rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 14px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .form-section-title i { color: var(--sage-500); font-size: 18px; }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .form-group { display: flex; flex-direction: column; gap: 5px; }
+  .form-label {
+    font-size: .8rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+  }
+  .form-control {
+    padding: 10px 12px;
+    border: 1.5px solid var(--border);
+    border-radius: 9px;
+    background: var(--cream);
+    color: var(--text-primary);
+    font-family: var(--font-body);
+    font-size: .9rem;
+    outline: none;
+    transition: border-color .15s, box-shadow .15s;
+    width: 100%;
+  }
+  .form-control:focus {
+    border-color: var(--sage-400);
+    box-shadow: 0 0 0 3px rgba(79,165,114,.15);
+    background: var(--white);
+  }
+  textarea.form-control { resize: vertical; min-height: 80px; }
+
+  .toggle-wrap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .toggle {
+    position: relative;
+    width: 40px; height: 22px;
+  }
+  .toggle input { display: none; }
+  .toggle-track {
+    position: absolute;
+    inset: 0;
+    background: var(--border);
+    border-radius: 11px;
+    cursor: pointer;
+    transition: background .2s;
+  }
+  .toggle input:checked + .toggle-track { background: var(--sage-500); }
+  .toggle-thumb {
+    position: absolute;
+    top: 3px; left: 3px;
+    width: 16px; height: 16px;
+    background: #fff;
+    border-radius: 50%;
+    transition: transform .2s;
+    pointer-events: none;
+  }
+  .toggle input:checked ~ .toggle-thumb { transform: translateX(18px); }
+  .toggle-label { font-size: .88rem; color: var(--text-secondary); }
+
+  .form-hint {
+    font-size: .74rem;
+    color: var(--text-muted);
+    margin-top: 3px;
+  }
+
+  .footer-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+  }
+
+  @media (max-width: 560px) {
+    .grid-2 { grid-template-columns: 1fr; }
+  }
+</style>
+
+<div class="page-header">
+  <div>
+    <h1>{% if med %}Editar medicamento{% else %}Novo medicamento{% endif %}</h1>
+    <p>{% if med %}Atualize as informações do medicamento.{% else %}Preencha os dados do remédio e os horários de administração.{% endif %}</p>
+  </div>
+</div>
+
+<div class="form-wrap">
+  <form method="POST"
+        action="{% if med %}{{ url_for('medicamentos.editar', med_id=med.id) }}{% else %}{{ url_for('medicamentos.novo') }}{% endif %}">
+
+    <!-- Informações básicas -->
+    <div class="card form-section">
+      <div class="card-header">
+        <div class="form-section-title" style="margin:0;border:none;padding:0">
+          <i class="ti ti-pill"></i> Informações do medicamento
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="form-group mb-3">
+          <label class="form-label" for="idoso_id">Idoso *</label>
+          <select name="idoso_id" id="idoso_id" class="form-control" required
+                  {% if med %}disabled{% endif %}>
+            <option value="">Selecione o idoso...</option>
+            {% for idoso in idosos %}
+            <option value="{{ idoso.id }}"
+              {% if med and med.idoso_id == idoso.id %}selected
+              {% elif request.form.get('idoso_id')|int == idoso.id %}selected{% endif %}>
+              {{ idoso.nome }}
+            </option>
+            {% endfor %}
+          </select>
+          {% if med %}
+          <input type="hidden" name="idoso_id" value="{{ med.idoso_id }}">
+          {% endif %}
+        </div>
+
+        <div class="grid-2 mb-3">
+          <div class="form-group">
+            <label class="form-label" for="nome">Nome do medicamento *</label>
+            <input type="text" id="nome" name="nome" class="form-control"
+                   placeholder="Ex: Losartana"
+                   value="{{ med.nome if med else request.form.get('nome', '') }}"
+                   required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="dosagem">Dosagem</label>
+            <input type="text" id="dosagem" name="dosagem" class="form-control"
+                   placeholder="Ex: 50mg, 2 comprimidos"
+                   value="{{ med.dosagem if med else request.form.get('dosagem', '') }}">
+          </div>
+        </div>
+
+        <div class="form-group mb-3">
+          <label class="form-label" for="instrucoes">Instruções de administração</label>
+          <textarea id="instrucoes" name="instrucoes" class="form-control"
+                    placeholder="Ex: Tomar com água, após o café da manhã. Não partir o comprimido.">{{ med.instrucoes if med else request.form.get('instrucoes', '') }}</textarea>
+        </div>
+
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label" for="data_inicio">Data de início *</label>
+            <input type="date" id="data_inicio" name="data_inicio" class="form-control"
+                   value="{{ med.data_inicio.isoformat() if med else request.form.get('data_inicio', hoje.isoformat()) }}"
+                   required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="data_fim">Data de término</label>
+            <input type="date" id="data_fim" name="data_fim" class="form-control"
+                   value="{{ med.data_fim.isoformat() if med and med.data_fim else request.form.get('data_fim', '') }}">
+            <span class="form-hint">Deixe em branco para uso contínuo.</span>
+          </div>
+        </div>
+
+        {% if med %}
+        <div class="toggle-wrap mt-3">
+          <label class="toggle">
+            <input type="checkbox" name="ativo" {% if med.ativo %}checked{% endif %}>
+            <div class="toggle-track"></div>
+            <div class="toggle-thumb"></div>
+          </label>
+          <span class="toggle-label">Medicamento ativo</span>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Horários -->
+    <div class="card form-section">
+      <div class="card-header">
+        <div class="form-section-title" style="margin:0;border:none;padding:0">
+          <i class="ti ti-clock"></i> Horários de administração
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="horarios-list" id="horariosList">
+          {% if med %}
+            {% for h in med.horarios.all() %}
+            <div class="horario-row">
+              <i class="ti ti-clock"></i>
+              <input type="time" name="horarios[]"
+                     value="{{ h.horario.strftime('%H:%M') }}" required>
+              <select name="dias[]">
+                <option value="todos" {% if h.dia_semana is none %}selected{% endif %}>Todos os dias</option>
+                <option value="0" {% if h.dia_semana == 0 %}selected{% endif %}>Segunda</option>
+                <option value="1" {% if h.dia_semana == 1 %}selected{% endif %}>Terça</option>
+                <option value="2" {% if h.dia_semana == 2 %}selected{% endif %}>Quarta</option>
+                <option value="3" {% if h.dia_semana == 3 %}selected{% endif %}>Quinta</option>
+                <option value="4" {% if h.dia_semana == 4 %}selected{% endif %}>Sexta</option>
+                <option value="5" {% if h.dia_semana == 5 %}selected{% endif %}>Sábado</option>
+                <option value="6" {% if h.dia_semana == 6 %}selected{% endif %}>Domingo</option>
+              </select>
+              <button type="button" class="remove-btn" onclick="removerHorario(this)">
+                <i class="ti ti-trash"></i>
+              </button>
+            </div>
+            {% endfor %}
+          {% else %}
+            <!-- linha inicial vazia -->
+            <div class="horario-row">
+              <i class="ti ti-clock"></i>
+              <input type="time" name="horarios[]" required>
+              <select name="dias[]">
+                <option value="todos">Todos os dias</option>
+                <option value="0">Segunda</option>
+                <option value="1">Terça</option>
+                <option value="2">Quarta</option>
+                <option value="3">Quinta</option>
+                <option value="4">Sexta</option>
+                <option value="5">Sábado</option>
+                <option value="6">Domingo</option>
+              </select>
+              <button type="button" class="remove-btn" onclick="removerHorario(this)">
+                <i class="ti ti-trash"></i>
+              </button>
+            </div>
+          {% endif %}
+        </div>
+
+        <button type="button" class="add-horario-btn" onclick="adicionarHorario()">
+          <i class="ti ti-plus"></i> Adicionar horário
+        </button>
+      </div>
+    </div>
+
+    <!-- ações -->
+    <div class="footer-actions">
+      <button type="submit" class="btn btn-primary">
+        <i class="ti ti-{% if med %}check{% else %}pill{% endif %}"></i>
+        {% if med %}Salvar alterações{% else %}Cadastrar medicamento{% endif %}
+      </button>
+      <a href="{{ url_for('medicamentos.index') }}" class="btn btn-secondary">
+        Cancelar
+      </a>
+    </div>
+
+  </form>
+</div>
+
+<script>
+  const diasOpts = `
+    <option value="todos">Todos os dias</option>
+    <option value="0">Segunda</option>
+    <option value="1">Terça</option>
+    <option value="2">Quarta</option>
+    <option value="3">Quinta</option>
+    <option value="4">Sexta</option>
+    <option value="5">Sábado</option>
+    <option value="6">Domingo</option>
+  `;
+
+  function adicionarHorario() {
+    const list = document.getElementById('horariosList');
+    const row  = document.createElement('div');
+    row.className = 'horario-row';
+    row.innerHTML = `
+      <i class="ti ti-clock"></i>
+      <input type="time" name="horarios[]" required>
+      <select name="dias[]">${diasOpts}</select>
+      <button type="button" class="remove-btn" onclick="removerHorario(this)">
+        <i class="ti ti-trash"></i>
+      </button>
+    `;
+    list.appendChild(row);
+    row.querySelector('input[type="time"]').focus();
+  }
+
+  function removerHorario(btn) {
+    const list = document.getElementById('horariosList');
+    if (list.children.length <= 1) return; // mantém ao menos 1
+    btn.closest('.horario-row').remove();
+  }
+</script>
+{% endblock %}
